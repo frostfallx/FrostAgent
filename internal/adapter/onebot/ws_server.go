@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"sync"
 
 	"FrostAgent/internal/model"
 	"github.com/gorilla/websocket"
@@ -15,6 +16,8 @@ var upgrader = websocket.Upgrader{
 		return true
 	},
 }
+
+var writeMu sync.Mutex
 
 func HandleWS(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -81,10 +84,13 @@ func processEvent(conn *websocket.Conn, event model.OneBotEvent) {
 
 			actionBytes, _ := json.Marshal(action)
 
-			// write in ws concurrently should be protected by mutex, but ignore it here
-			if err := conn.WriteMessage(websocket.TextMessage, actionBytes); err != nil {
+			writeMu.Lock()
+			err := conn.WriteMessage(websocket.TextMessage, actionBytes)
+			writeMu.Unlock()
+			if err != nil {
 				log.Printf("发送消息失败: %v\n", err)
 			}
+
 		} else if event.MessageType == "private" {
 			log.Printf("收到用户 [%d] 的私聊消息: %s", event.UserID, string(event.Message))
 			action := model.OneBotAction{
@@ -97,9 +103,11 @@ func processEvent(conn *websocket.Conn, event model.OneBotEvent) {
 			}
 
 			actionBytes, _ := json.Marshal(action)
+			writeMu.Lock()
 			err := conn.WriteMessage(websocket.TextMessage, actionBytes)
+			writeMu.Unlock()
 			if err != nil {
-				return
+				log.Printf("发送消息失败: %v\n", err)
 			}
 
 		}

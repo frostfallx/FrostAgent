@@ -25,7 +25,7 @@ func init() {
 
 	llmClient := llm.NewClient()
 
-	registry := make(map[string]agent.Tool)
+	registry := make(map[string]tools.Tool)
 	weatherTool := tools.GetWeatherTool()
 	registry[weatherTool.Name] = weatherTool
 

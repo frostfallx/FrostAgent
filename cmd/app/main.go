@@ -1,11 +1,13 @@
 package main
 
 import (
+	"FrostAgent/internal/adapter/onebot"
 	"FrostAgent/internal/agent"
 	"FrostAgent/internal/llm"
 	"FrostAgent/internal/tools"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 
 	"github.com/gin-gonic/gin"
@@ -29,6 +31,9 @@ func init() {
 	weatherTool := tools.GetWeatherTool()
 	registry[weatherTool.Name] = weatherTool
 
+	gameVersionTool := tools.GetGameVersionTool()
+	registry[gameVersionTool.Name] = gameVersionTool
+
 	globalEngine = &agent.Engine{
 		MaxIterations: 5,
 		ToolRegistry:  registry,
@@ -48,17 +53,33 @@ func main() {
 	// 设置路由
 	setupRouter(router)
 
-	// 启动服务器
-	listenAddr := os.Getenv("LISTEN_ADDR")
-	if listenAddr == "" {
-		listenAddr = ":8080"
-	}
-	fmt.Printf("\n🚀 FrostAgent 智能体服务已启动\n")
-	fmt.Printf("📍 监听地址: http://localhost%s\n", listenAddr)
-	fmt.Printf("📝 查询接口: POST http://localhost%s/agent/query\n", listenAddr)
-	fmt.Printf("✓ 健康检查: GET http://localhost%s/health\n\n", listenAddr)
+	go func() {
+		// 启动服务器
+		listenAddr := os.Getenv("LISTEN_ADDR")
+		if listenAddr == "" {
+			listenAddr = ":8080"
+		}
+		fmt.Printf("\n🚀 FrostAgent 智能体服务已启动\n")
+		fmt.Printf("📍 监听地址: http://localhost%s\n", listenAddr)
+		fmt.Printf("📝 查询接口: POST http://localhost%s/agent/query\n", listenAddr)
+		fmt.Printf("✓ 健康检查: GET http://localhost%s/health\n\n", listenAddr)
 
-	if err := router.Run(listenAddr); err != nil {
-		log.Fatalf("服务器启动失败: %v", err)
+		if err := router.Run(listenAddr); err != nil {
+			log.Fatalf("服务器启动失败: %v", err)
+		}
+	}()
+
+	//reg reverse ws router
+	http.HandleFunc("/ws/frostagent", onebot.HandleWS)
+
+	// start server
+	addr := os.Getenv("WS_LISTEN_ADDR")
+	if addr == "" {
+		addr = "0.0.0.0:1234"
+	}
+
+	log.Printf("FrostAgent 服务已启动，监听 %s\n", addr)
+	if err := http.ListenAndServe(addr, nil); err != nil {
+		log.Fatalf("ws服务启动失败: %v\n", err)
 	}
 }

@@ -18,14 +18,6 @@ type Engine struct {
 	ModelName     string      // 模型名称
 }
 
-// NewEngine 工厂函数，组装新的引擎
-func NewEngine(maxIterations int, registry map[string]tools.Tool) *Engine {
-	return &Engine{
-		MaxIterations: maxIterations,
-		ToolRegistry:  registry,
-	}
-}
-
 // Run 执行智能体的主循环
 func (e *Engine) Run(prompt string) string {
 	//初始化上下文

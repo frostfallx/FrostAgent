@@ -3,10 +3,11 @@ package llm
 import (
 	"encoding/json"
 	"log"
+	"os"
 	"strings"
 )
 
-func CallVisionModel(client *Client, baseURL, apiKey, modelName, contentBlocks string) string {
+func CallVisionModel(client *Client, baseURL, apiKey, _, contentBlocks string) string {
 	systemPrompt := "请用中文描述图片："
 
 	// 将传入的 JSON 字符串格式反序列化为真正的对象数组
@@ -33,12 +34,15 @@ func CallVisionModel(client *Client, baseURL, apiKey, modelName, contentBlocks s
 		{Role: "user", Content: parsedContent}, // 传入真正的数组结构
 	}
 
-	log.Printf("即将传给：%s", messages)
+	log.Printf("即将传递消息给视觉模型")
 
-	responseMsg, err := client.CallAPI(baseURL, apiKey, "qwen3.5-omni-plus-2026-03-15", messages, nil)
+	responseMsg, err := client.CallAPI(baseURL, apiKey, os.Getenv("VISUAL_MODEL_NAME"), messages, nil)
 	if err != nil {
+		log.Printf(err.Error())
 		return err.Error()
 	}
+
+	log.Printf("调用视觉模型，responMsg：%s", responseMsg)
 
 	// 更加健壮地处理大模型的返回值，防止强转失败变成空字符串
 	var contentStr string

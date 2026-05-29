@@ -39,7 +39,7 @@ func init() {
 		LLMClient:     llmClient,
 		BaseURL:       os.Getenv("UPSTREAM_ENDPOINT"),
 		APIKey:        os.Getenv("UPSTREAM_API_KEY"),
-		ModelName:     "qwen3-coder-flash",
+		ModelName:     os.Getenv("MODEL_NAME"),
 	}
 
 	// 设置 onebot 的引擎

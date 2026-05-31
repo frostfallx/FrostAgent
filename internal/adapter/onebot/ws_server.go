@@ -102,7 +102,7 @@ func reply(action string, type1 string, id string, echo string, event model.OneB
 	//containing img or not
 	if content.IsContainImage(segments) {
 		imageDesc := content.ProcessImage(segments, engine.LLMClient, engine.BaseURL, engine.APIKey, engine.ModelName)
-		replyText = engine.Run(extractUserText(segments, event) + " 【假设你已经看到了图片，下面是图片概括】：" + imageDesc)
+		replyText = engine.Run(extractUserText(segments, event) + " 【图片内容】：" + imageDesc)
 	} else if engine != nil {
 		replyText = engine.Run(extractUserText(segments, event))
 	} else {

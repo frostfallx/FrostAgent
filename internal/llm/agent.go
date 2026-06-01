@@ -12,11 +12,11 @@ import (
 type Engine struct {
 	MaxIterations  int
 	ToolRegistry   map[string]tools.Tool
-	LLMClient      *Client          // API 客户端
-	BaseURL        string           // API 地址
-	APIKey         string           // API 密钥
-	ModelName      string           // 模型名称
-	SessionManager *SessionManager  // 会话上下文管理器
+	LLMClient      *Client         // API 客户端
+	BaseURL        string          // API 地址
+	APIKey         string          // API 密钥
+	ModelName      string          // 模型名称
+	SessionManager *SessionManager // 会话上下文管理器
 }
 
 // Run 执行智能体的主循环（单次无状态调用）
@@ -38,13 +38,16 @@ func (e *Engine) RunWithSession(sessionID string, prompt string) string {
 	session.Lock()
 	defer session.Unlock()
 
+	// get history msg
 	messages := session.Messages
 
+	// if new session, add system prompt
 	if len(messages) == 0 {
 		systemPrompt := os.Getenv("SYSTEM_PROMPT")
 		messages = append(messages, ChatMessage{Role: "system", Content: systemPrompt})
 	}
 
+	// add user input
 	messages = append(messages, ChatMessage{Role: "user", Content: prompt})
 
 	result := e.runLoop(messages)
@@ -70,9 +73,10 @@ func (e *Engine) runLoop(messages []ChatMessage) string {
 		})
 	}
 
+	// 主循环
 	for i := 0; i < e.MaxIterations; i++ {
 		fmt.Printf("【第%d轮思考开始】\n", i+1)
-
+		// 调用 internal/llm 包向大模型发送 HTTP 请求
 		responseMsg, err := e.LLMClient.CallAPI(e.BaseURL, e.APIKey, e.ModelName, messages, modelTools)
 		if err != nil {
 			return fmt.Sprintf("LLM掉线了: %v", err)
@@ -80,6 +84,7 @@ func (e *Engine) runLoop(messages []ChatMessage) string {
 
 		messages = append(messages, *responseMsg)
 
+		// 是否给出最终答案
 		if len(responseMsg.ToolCalls) == 0 {
 			fmt.Println("【智能体给出最终答案】")
 			contentStr, _ := responseMsg.Content.(string)
@@ -90,6 +95,7 @@ func (e *Engine) runLoop(messages []ChatMessage) string {
 			fmt.Printf("【智能体调用工具】%s，参数: %s\n", tc.Function.Name, tc.Function.Arguments)
 
 			var toolResult string
+			// 从 map 中找到工具执行
 			if tool, exists := e.ToolRegistry[tc.Function.Name]; exists {
 				res, err := tool.Execute(tc.Function.Arguments)
 				if err != nil {

@@ -24,6 +24,24 @@ func (s *SessionContext) Unlock() {
 	s.mu.Unlock()
 }
 
+// Snapshot returns a copy of the messages while holding the session lock.
+func (s *SessionContext) Snapshot() []ChatMessage {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	messages := make([]ChatMessage, len(s.Messages))
+	copy(messages, s.Messages)
+	return messages
+}
+
+// ReplaceMessages atomically replaces a session history.
+func (s *SessionContext) ReplaceMessages(messages []ChatMessage) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.Messages = make([]ChatMessage, len(messages))
+	copy(s.Messages, messages)
+	s.UpdatedAt = time.Now()
+}
+
 // SessionManager 管理多个会话上下文，支持多用户/多群聊隔离
 type SessionManager struct {
 	sessions   map[string]*SessionContext
@@ -84,7 +102,10 @@ func (sm *SessionManager) Cleanup() {
 	defer sm.mu.Unlock()
 	now := time.Now()
 	for id, s := range sm.sessions {
-		if now.Sub(s.UpdatedAt) > sm.TTL {
+		s.mu.Lock()
+		expired := now.Sub(s.UpdatedAt) > sm.TTL
+		s.mu.Unlock()
+		if expired {
 			delete(sm.sessions, id)
 		}
 	}

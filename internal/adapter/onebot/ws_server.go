@@ -139,11 +139,8 @@ func reply(action string, type1 string, id string, echo string, event model.OneB
 	if engine != nil {
 		chatKey := historyKey(event)
 
-		// 将用户的 prompt 加入历史记录
-		chatHistory.Append(chatKey, llm.ChatMessage{Role: "user", Content: prompt})
-
-		// 提取该会话的完整历史记录
-		messages := chatHistory.Messages(chatKey)
+		// 原子地追加用户 prompt 并提取该会话的完整历史记录，避免并发消息交错丢失。
+		messages := chatHistory.AppendAndMessages(chatKey, llm.ChatMessage{Role: "user", Content: prompt})
 
 		// 传递给大模型
 		replyText = engine.RunMessages(messages)

@@ -30,6 +30,18 @@ func (h *messageHistory) Append(key string, msg llm.ChatMessage) {
 	h.data[key] = llm.TrimMessages(h.data[key], h.limit)
 }
 
+func (h *messageHistory) AppendAndMessages(key string, msg llm.ChatMessage) []llm.ChatMessage {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	h.data[key] = append(h.data[key], msg)
+	h.data[key] = llm.TrimMessages(h.data[key], h.limit)
+	messages := h.data[key]
+	copied := make([]llm.ChatMessage, len(messages))
+	copy(copied, messages)
+	return copied
+}
+
 func (h *messageHistory) Messages(key string) []llm.ChatMessage {
 	h.mu.RLock()
 	defer h.mu.RUnlock()

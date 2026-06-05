@@ -279,6 +279,9 @@ func extractUserText(segments []content.MessageSegment, raw json.RawMessage) str
 			bytes, err := json.Marshal(seg)
 			if err == nil {
 				texts = append(texts, string(bytes))
+			} else {
+				texts = append(texts, "[未知消息段]")
+				log.Printf("Failed to marshal unknown segment: %v", err)
 			}
 		}
 	}

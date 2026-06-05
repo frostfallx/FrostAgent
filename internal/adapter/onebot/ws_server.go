@@ -266,7 +266,15 @@ func extractUserText(segments []content.MessageSegment, raw json.RawMessage) str
 		case "location":
 			texts = append(texts, fmt.Sprintf("[位置:%v,%v %v] ", seg.Data["lat"], seg.Data["lon"], seg.Data["title"]))
 		case "json", "xml":
-			texts = append(texts, fmt.Sprintf("[%s:%v] ", seg.Type, seg.Data["data"]))
+			// 先尝试获取 data 字段
+			data := seg.Data["data"]
+			// 如果 data 是 map 或 slice，重新 marshal 成标准 JSON
+			if b, err := json.Marshal(data); err == nil {
+				texts = append(texts, fmt.Sprintf("[%s:%s]", seg.Type, string(b)))
+			} else if s, ok := data.(string); ok {
+				// 如果本来就是字符串，直接用
+				texts = append(texts, fmt.Sprintf("[%s:%s]", seg.Type, s))
+			}
 		default:
 			bytes, err := json.Marshal(seg)
 			if err == nil {

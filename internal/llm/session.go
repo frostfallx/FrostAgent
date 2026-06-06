@@ -32,27 +32,13 @@ func (s *SessionContext) Snapshot() []ChatMessage {
 	snapshot := make([]ChatMessage, len(s.Messages))
 	for i, msg := range s.Messages {
 		newMsg := msg
-
 		// 1. 深拷贝 ToolCalls
 		if len(msg.ToolCalls) > 0 {
 			newMsg.ToolCalls = make([]ToolCall, len(msg.ToolCalls))
 			copy(newMsg.ToolCalls, msg.ToolCalls)
 		}
-
-		// 2. 深拷贝 Content (处理 any 类型中的切片)
-		// 如果业务中使用了 []MessagePart，则需要进行拷贝
-		// 注意：如果 MessagePart 未定义，此处会编译失败。
-		// 但根据 PR 要求，我们需要处理这种潜在的切片类型。
-		/*
-		if msg.Content != nil {
-			if v, ok := msg.Content.([]MessagePart); ok {
-				newContent := make([]MessagePart, len(v))
-				copy(newContent, v)
-				newMsg.Content = newContent
-			}
-		}
-		*/
-
+		// 2. 深拷贝 Content (如果装的是切片，如 []MessagePart)
+		// 注意：目前项目中未发现 MessagePart 定义，此处保留 any 处理逻辑
 		snapshot[i] = newMsg
 	}
 	return snapshot
@@ -72,15 +58,6 @@ func (s *SessionContext) ReplaceMessages(messages []ChatMessage) {
 			copy(newMsg.ToolCalls, msg.ToolCalls)
 		}
 		// 2. 深拷贝 Content
-		/*
-		if msg.Content != nil {
-			if v, ok := msg.Content.([]MessagePart); ok {
-				newContent := make([]MessagePart, len(v))
-				copy(newContent, v)
-				newMsg.Content = newContent
-			}
-		}
-		*/
 		newMessages[i] = newMsg
 	}
 

@@ -28,9 +28,20 @@ func (s *SessionContext) Unlock() {
 func (s *SessionContext) Snapshot() []ChatMessage {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	messages := make([]ChatMessage, len(s.Messages))
-	copy(messages, s.Messages)
-	return messages
+
+	snapshot := make([]ChatMessage, len(s.Messages))
+	for i, msg := range s.Messages {
+		newMsg := msg
+		// Deep copy ToolCalls
+		if len(msg.ToolCalls) > 0 {
+			newMsg.ToolCalls = make([]ToolCall, len(msg.ToolCalls))
+			copy(newMsg.ToolCalls, msg.ToolCalls)
+		}
+		// Deep copy Content if it's a slice of MessagePart (OpenAI specific)
+		// Note: Content is 'any' in ChatMessage, we handle common slice types
+		snapshot[i] = newMsg
+	}
+	return snapshot
 }
 
 // ReplaceMessages atomically replaces a session history.

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -17,11 +18,42 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// 生产环境必须限制 Origin，目前仅用于本地调试
+// upgrader restricts browser WebSocket origins. Configure extra trusted origins
+// with WS_ALLOWED_ORIGINS as a comma-separated list, for example:
+// https://bot.example.com,https://admin.example.com
 var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
+	CheckOrigin: checkWebSocketOrigin,
+}
+
+func checkWebSocketOrigin(r *http.Request) bool {
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	if origin == "" {
+		// Non-browser OneBot implementations often omit Origin; keep them working.
 		return true
-	},
+	}
+
+	originURL, err := url.Parse(origin)
+	if err != nil || originURL.Host == "" {
+		log.Printf("拒绝 WebSocket 连接：非法 Origin %q", origin)
+		return false
+	}
+
+	if strings.EqualFold(originURL.Host, r.Host) {
+		return true
+	}
+
+	for _, allowed := range strings.Split(os.Getenv("WS_ALLOWED_ORIGINS"), ",") {
+		allowed = strings.TrimSpace(allowed)
+		if allowed == "" {
+			continue
+		}
+		if strings.EqualFold(allowed, origin) || strings.EqualFold(allowed, originURL.Host) {
+			return true
+		}
+	}
+
+	log.Printf("拒绝 WebSocket 连接：Origin %q 不在允许列表", origin)
+	return false
 }
 
 var chatHistory = newMessageHistory(historyLimitFromEnv())

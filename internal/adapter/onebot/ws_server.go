@@ -25,6 +25,19 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: checkWebSocketOrigin,
 }
 
+var allowedOrigins []string
+
+func init() {
+	env := os.Getenv("WS_ALLOWED_ORIGINS")
+	if env != "" {
+		for _, o := range strings.Split(env, ",") {
+			if trimmed := strings.TrimSpace(o); trimmed != "" {
+				allowedOrigins = append(allowedOrigins, trimmed)
+			}
+		}
+	}
+}
+
 func checkWebSocketOrigin(r *http.Request) bool {
 	origin := strings.TrimSpace(r.Header.Get("Origin"))
 	if origin == "" {
@@ -42,11 +55,7 @@ func checkWebSocketOrigin(r *http.Request) bool {
 		return true
 	}
 
-	for _, allowed := range strings.Split(os.Getenv("WS_ALLOWED_ORIGINS"), ",") {
-		allowed = strings.TrimSpace(allowed)
-		if allowed == "" {
-			continue
-		}
+	for _, allowed := range allowedOrigins {
 		if strings.EqualFold(allowed, origin) || strings.EqualFold(allowed, originURL.Host) {
 			return true
 		}

@@ -216,10 +216,15 @@ func reply(action string, type1 string, id string, echo string, event model.OneB
 		// B. It's plain text
 		if event.MessageType == "group" {
 			// Prepend @ in group chats
-			finalMessage = []map[string]interface{}{
-				{"type": "at", "data": map[string]interface{}{"qq": strconv.FormatInt(event.UserID, 10)}},
-				{"type": "text", "data": map[string]interface{}{"text": " " + replyText}},
+			if os.Getenv("ENABLE_AT_IN_GROUP_MSG") == "true" {
+				finalMessage = []map[string]interface{}{
+					{"type": "at", "data": map[string]interface{}{"qq": strconv.FormatInt(event.UserID, 10)}},
+					{"type": "text", "data": map[string]interface{}{"text": " " + replyText}},
+				}
+			} else {
+				finalMessage = replyText
 			}
+
 		} else {
 			// Just plain text for private messages
 			finalMessage = replyText

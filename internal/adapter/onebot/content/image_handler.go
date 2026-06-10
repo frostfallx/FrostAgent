@@ -1,6 +1,7 @@
 package content
 
 import (
+	"FrostAgent/internal/core"
 	"FrostAgent/internal/llm"
 	"encoding/base64"
 	"encoding/json"
@@ -21,11 +22,11 @@ func IsContainImage(segments []MessageSegment) bool {
 	return false
 }
 
-func ProcessImage(segments []MessageSegment, client *llm.Client, baseURL, apiKey, modelName string) string {
+// ProcessImage 现在接受 core.LLMProvider 接口
+func ProcessImage(segments []MessageSegment, provider core.LLMProvider, baseURL, apiKey, modelName string) string {
 	var userTexts []string
 	var imageBase64List []string
 
-	// dispatch text and image
 	for _, seg := range segments {
 		if seg.Type == "text" {
 			if text, ok := seg.Data["text"].(string); ok {
@@ -34,37 +35,29 @@ func ProcessImage(segments []MessageSegment, client *llm.Client, baseURL, apiKey
 		} else if seg.Type == "image" {
 			url, ok := seg.Data["url"].(string)
 			if !ok || strings.TrimSpace(url) == "" {
-				log.Printf("图片消息缺少 url 字段: %+v", seg.Data)
 				continue
 			}
-			// convert img to base64
 			if b64, err := downloadAndToBase64(url); err == nil {
 				imageBase64List = append(imageBase64List, b64)
-			} else {
-				log.Printf("下载图片失败: %v", err)
 			}
 		}
 	}
 
 	combinedText := strings.Join(userTexts, "")
-	// eg: call Qwen-VL
 	if len(imageBase64List) > 0 {
-		contentBlocks := []ContentBlock{
+		contentBlocks := []llm.ContentBlock{
 			{Type: "text", Text: combinedText},
 		}
 
 		for _, b64 := range imageBase64List {
-			contentBlocks = append(contentBlocks, ContentBlock{
+			contentBlocks = append(contentBlocks, llm.ContentBlock{
 				Type:     "image_url",
 				ImageURL: map[string]string{"url": "data:image/jpeg;base64," + b64},
 			})
 		}
-		jsonBytes, err := json.Marshal(contentBlocks)
-		if err != nil {
-			log.Printf("序列化消息失败: %v\n", err)
-			return "无法读取图片"
-		}
-		return llm.CallVisionModel(client, baseURL, apiKey, modelName, string(jsonBytes))
+		jsonBytes, _ := json.Marshal(contentBlocks)
+		// 调用更新后的视觉模型函数
+		return llm.CallVisionModel(provider, baseURL, apiKey, modelName, string(jsonBytes))
 	}
 	return combinedText
 }
@@ -75,20 +68,11 @@ func downloadAndToBase64(url string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			log.Printf("关闭图片响应体失败: %v\n", err)
-		}
-	}()
-
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return "", fmt.Errorf("图片下载失败，状态码: %d", resp.StatusCode)
-	}
+	defer resp.Body.Close()
 
 	imgBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
-
 	return base64.StdEncoding.EncodeToString(imgBytes), nil
 }

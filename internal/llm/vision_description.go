@@ -1,20 +1,21 @@
 package llm
 
 import (
+	"FrostAgent/internal/core"
+	"context"
 	"encoding/json"
 	"log"
 	"os"
 	"strings"
 )
 
-func CallVisionModel(client *Client, baseURL, apiKey, _, contentBlocks string) string {
+// CallVisionModel 现在接受 core.LLMProvider 接口，实现解耦
+func CallVisionModel(provider core.LLMProvider, baseURL, apiKey, _, contentBlocks string) string {
 	systemPrompt := "请用中文描述图片："
 
-	// 将传入的 JSON 字符串格式反序列化为真正的对象数组
 	var parsedContent any = contentBlocks
 	var blocks []any
 	if err := json.Unmarshal([]byte(contentBlocks), &blocks); err == nil {
-		// 修复空 text block 导致的无响应问题
 		for i, b := range blocks {
 			if m, ok := b.(map[string]any); ok {
 				if m["type"] == "text" {
@@ -26,38 +27,36 @@ func CallVisionModel(client *Client, baseURL, apiKey, _, contentBlocks string) s
 				}
 			}
 		}
-		parsedContent = blocks // 解析成功，使用对象数组
+		parsedContent = blocks
 	}
 
-	messages := []ChatMessage{
-		{Role: "system", Content: systemPrompt},
-		{Role: "user", Content: parsedContent}, // 传入真正的数组结构
+	// 构造 core 层的请求
+	chatReq := core.ChatRequest{
+		Model: os.Getenv("VISUAL_MODEL_NAME"),
+		Messages: []core.ChatMessage{
+			{Role: core.RoleSystem, Content: systemPrompt},
+			{Role: core.RoleUser, Content: parsedContent},
+		},
 	}
 
-	log.Printf("即将传递消息给视觉模型")
+	log.Printf("【视觉模型】即将通过 Provider 发起调用")
 
-	responseMsg, err := client.CallAPI(baseURL, apiKey, os.Getenv("VISUAL_MODEL_NAME"), messages, nil)
+	resp, err := provider.Chat(context.Background(), chatReq)
 	if err != nil {
-		log.Printf("%s", err.Error())
+		log.Printf("视觉模型调用失败: %v", err)
 		return err.Error()
 	}
 
-	log.Printf("调用视觉模型，responMsg：%s", responseMsg)
-
-	// 更加健壮地处理大模型的返回值，防止强转失败变成空字符串
 	var contentStr string
-	if str, ok := responseMsg.Content.(string); ok {
+	if str, ok := resp.Message.Content.(string); ok {
 		contentStr = str
-	} else if responseMsg.Content != nil {
-		bytes, _ := json.Marshal(responseMsg.Content)
+	} else if resp.Message.Content != nil {
+		bytes, _ := json.Marshal(resp.Message.Content)
 		contentStr = string(bytes)
-		log.Printf("【警告】模型返回的 Content 不是纯文本，原始数据: %s", contentStr)
 	} else {
-		contentStr = "【视觉模型未返回任何描述内容】"
-		log.Printf("【警告】视觉模型返回了空响应，完整对象: %+v", responseMsg)
+		contentStr = "【视觉模型未返回内容】"
 	}
 
-	log.Printf("调用视觉模型，描述：%s", contentStr)
-
+	log.Printf("视觉模型描述完成")
 	return contentStr
 }

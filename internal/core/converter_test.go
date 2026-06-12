@@ -47,7 +47,7 @@ func TestToChatMessages(t *testing.T) {
 				if len(parts) != 2 {
 					t.Fatalf("expected 2 parts, got %d", len(parts))
 				}
-				if parts[0].Type != ContentPartTypeText || parts[1].Type != ContentPartTypeImage {
+				if parts[0].Type != string(ContentPartTypeText) || parts[1].Type != string(ContentPartTypeImage) {
 					t.Errorf("unexpected part types: %s, %s", parts[0].Type, parts[1].Type)
 				}
 			},
